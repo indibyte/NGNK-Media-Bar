@@ -2,6 +2,8 @@
 
 A full-width Apple Music Touch Bar for [MTMR](https://github.com/Toxblh/MTMR).
 
+![NGNK Media Bar on the Touch Bar](docs/media-bar.gif)
+
 MTMR shows a now-playing button (album art and title) on your main bar. Tap it to open the media bar:
 
 - album art that scrolls top to bottom, pausing with playback
