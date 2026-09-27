@@ -40,7 +40,7 @@ Re-run it after pulling changes. To remove everything: `scripts/uninstall.sh`.
 ## How it works
 
 - **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework). This needs no Automation permission, which MTMR often can't get.
-- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`; `mediabar://close` closes it.
+- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`; `mediabar://close` closes it. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕.
 - **MTMR's button** only reads its image when MTMR loads its config. So on each track change the app saves the art to `~/Library/Application Support/NGNK Media Bar/art.png` and sets the button's title in `items.json`, and MTMR reloads. While the media bar is open, those updates wait until it closes, since a reload would cover it.
 
 The button the installer adds:

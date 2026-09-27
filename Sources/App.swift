@@ -33,6 +33,22 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         volume.action = #selector(volumeChanged)
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
         refresh()
+
+        // MTMR re-presents its own bar on app switches/launches (and wake/unlock), covering ours; take the
+        // Touch Bar back. MTMR can re-present a second or two later while an app is launching, so check again.
+        let ws = NSWorkspace.shared.notificationCenter
+        for name in [NSWorkspace.didActivateApplicationNotification, NSWorkspace.didLaunchApplicationNotification,
+                     NSWorkspace.didWakeNotification, NSWorkspace.screensDidWakeNotification,
+                     NSWorkspace.sessionDidBecomeActiveNotification] {
+            ws.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                for delay in [0.3, 1.0, 2.5] {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+                        guard let self = self, self.isOpen else { return }
+                        self.present()
+                    }
+                }
+            }
+        }
     }
 
     // mediabar://show opens the bar; mediabar://close closes it.
@@ -43,13 +59,19 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private func show() {
         isOpen = true
         volume.doubleValue = Volume.get()
-        NSTouchBar.presentFullWidth(bar)
+        present()
         eqTimer?.invalidate()
         eqTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             self.eq.update(self.levels.next(playing: self.state.playing))
         }
         refresh()
+    }
+
+    // Dismiss first: presenting a bar that's already in the system-modal stack doesn't bring it to the front.
+    private func present() {
+        NSTouchBar.dismissSystemModal(bar)
+        NSTouchBar.presentFullWidth(bar)
     }
 
     @objc private func close() {
