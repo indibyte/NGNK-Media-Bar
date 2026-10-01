@@ -17,6 +17,8 @@ enum MediaRemote {
         load(mrLib, "MRMediaRemoteGetNowPlayingInfo")
     static let getAppPID: @convention(c) (DispatchQueue, @escaping (Int32) -> Void) -> Void =
         load(mrLib, "MRMediaRemoteGetNowPlayingApplicationPID")
+    static let getIsPlaying: @convention(c) (DispatchQueue, @escaping (Bool) -> Void) -> Void =
+        load(mrLib, "MRMediaRemoteGetNowPlayingApplicationIsPlaying")
 
     static func send(_ command: Command) { _ = send(command.rawValue, nil) }
 }

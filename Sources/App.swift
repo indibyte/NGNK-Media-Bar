@@ -56,9 +56,15 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         }
     }
 
-    // mediabar://show opens the bar; mediabar://close closes it.
+    // mediabar://show | close | toggle | next | prev
     func application(_: NSApplication, open urls: [URL]) {
-        urls.last?.host == "close" ? close() : show()
+        switch urls.last?.host {
+        case "close": close()
+        case "toggle": togglePlayPause()
+        case "next": nextTrack()
+        case "prev": previousTrack()
+        default: show()
+        }
     }
 
     private func show() {

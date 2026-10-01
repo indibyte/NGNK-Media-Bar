@@ -1,4 +1,4 @@
-// NGNK Media Bar: a full-width Apple Music Touch Bar that opens over MTMR.
+// NGNK Media Bar: a full-width now-playing Touch Bar (Apple Music, YouTube, …) that opens over MTMR.
 // Run with --install-mtmr-button / --remove-mtmr-button to edit MTMR's config (used by the scripts).
 import AppKit
 

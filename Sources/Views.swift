@@ -19,12 +19,14 @@ class FixedView: NSView {
     required init?(coder: NSCoder) { fatalError() }
 }
 
-/// Album art at full tile width, scrolling top-to-bottom on a seamless loop; crossfades on track change.
+/// Artwork at full tile width (at its own aspect ratio, so wide video thumbnails aren't cropped), scrolling
+/// top-to-bottom on a seamless loop; crossfades on track change.
 final class ArtView: FixedView {
     private let strip = CALayer()   // two stacked copies of the art
     private let copies = [CALayer(), CALayer()]
     private var playing = false
     private var laidOut = CGSize.zero
+    private var aspect: CGFloat = 1   // art height / width
 
     override init(width: CGFloat) {
         super.init(width: width)
@@ -46,7 +48,15 @@ final class ArtView: FixedView {
         layer!.add(fade, forKey: "fade")
         let image = data.flatMap { NSImage(data: $0) }
         noAnimation { for c in copies { c.contents = image } }
+        let newAspect = image.map { $0.size.width > 0 ? $0.size.height / $0.size.width : 1 } ?? 1
+        if newAspect != aspect {
+            aspect = newAspect
+            laidOut = .zero
+            needsLayout = true
+        }
     }
+
+    private var artHeight: CGFloat { max(bounds.height, bounds.width * aspect) }
 
     /// Pause holds the strip where it is; resume continues the loop from that point.
     func setPlaying(_ playing: Bool) {
@@ -60,18 +70,18 @@ final class ArtView: FixedView {
         }
     }
 
-    private var startY: CGFloat { bounds.height - bounds.width }   // strip center with top of art visible
+    private var startY: CGFloat { bounds.height - artHeight }   // strip center with top of art visible
 
     private func startScroll() {
-        let w = bounds.width
-        guard w > 0, strip.animation(forKey: "scroll") == nil else { return }
+        let a = artHeight
+        guard bounds.width > 0, strip.animation(forKey: "scroll") == nil else { return }
         // Moving the strip up one art-height brings the lower copy's top into view: identical to the start.
         let scroll = CABasicAnimation(keyPath: "position.y")
         scroll.fromValue = startY
-        scroll.byValue = w
-        scroll.duration = CFTimeInterval(w / 15)
+        scroll.byValue = a
+        scroll.duration = CFTimeInterval(a / 15)
         scroll.repeatCount = .infinity
-        scroll.timeOffset = CFTimeInterval((strip.position.y - startY) / w) * scroll.duration
+        scroll.timeOffset = CFTimeInterval((strip.position.y - startY) / a) * scroll.duration
         strip.add(scroll, forKey: "scroll")
     }
 
@@ -79,11 +89,11 @@ final class ArtView: FixedView {
         super.layout()
         guard bounds.size != laidOut else { return }
         laidOut = bounds.size
-        let w = bounds.width, h = bounds.height
+        let w = bounds.width, h = bounds.height, a = artHeight
         noAnimation {
-            strip.frame = CGRect(x: 0, y: h - 2 * w, width: w, height: 2 * w)
-            copies[0].frame = CGRect(x: 0, y: w, width: w, height: w)
-            copies[1].frame = CGRect(x: 0, y: 0, width: w, height: w)
+            strip.frame = CGRect(x: 0, y: h - 2 * a, width: w, height: 2 * a)
+            copies[0].frame = CGRect(x: 0, y: a, width: w, height: a)
+            copies[1].frame = CGRect(x: 0, y: 0, width: w, height: a)
         }
         strip.removeAnimation(forKey: "scroll")
         if playing { startScroll() }

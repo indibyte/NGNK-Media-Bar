@@ -6,19 +6,33 @@ struct NowPlaying: Equatable {
     /// "Artist – Title", or "" when nothing is playing.
     var summary: String { artist.isEmpty ? title : "\(artist) – \(title)" }
 
-    /// Fetches Apple Music's now-playing state; empty when another app (or nothing) is the now-playing source.
+    /// Fetches the system Now Playing state from whichever app owns it (Apple Music, a browser playing
+    /// YouTube, etc.). Falls back to the app's icon when the source provides no artwork.
     static func fetch(_ done: @escaping (NowPlaying) -> Void) {
         MediaRemote.getAppPID(.main) { pid in
-            MediaRemote.getInfo(.main) { cf in
-                let info = (cf as? [String: Any]) ?? [:], k = "kMRMediaRemoteNowPlayingInfo"
-                guard NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == "com.apple.Music",
-                      let title = info[k + "Title"] as? String else { return done(NowPlaying()) }
-                done(NowPlaying(title: title,
-                                artist: info[k + "Artist"] as? String ?? "",
-                                playing: (info[k + "PlaybackRate"] as? Double ?? 0) > 0,
-                                art: info[k + "ArtworkData"] as? Data))
+            MediaRemote.getIsPlaying(.main) { playing in
+                MediaRemote.getInfo(.main) { cf in
+                    let info = (cf as? [String: Any]) ?? [:], k = "kMRMediaRemoteNowPlayingInfo"
+                    guard let title = info[k + "Title"] as? String, !title.isEmpty else { return done(NowPlaying()) }
+                    done(NowPlaying(title: title,
+                                    artist: info[k + "Artist"] as? String ?? "",
+                                    playing: playing,
+                                    art: info[k + "ArtworkData"] as? Data ?? appIcon(pid)))
+                }
             }
         }
+    }
+
+    private static var iconCache: [String: Data] = [:]
+
+    private static func appIcon(_ pid: Int32) -> Data? {
+        guard let app = NSRunningApplication(processIdentifier: pid), let id = app.bundleIdentifier,
+              let icon = app.icon else { return nil }
+        if let cached = iconCache[id] { return cached }
+        icon.size = NSSize(width: 256, height: 256)
+        let data = icon.tiffRepresentation.flatMap { NSBitmapImageRep(data: $0) }?.representation(using: .png, properties: [:])
+        iconCache[id] = data
+        return data
     }
 }
 

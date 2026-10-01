@@ -1,12 +1,12 @@
 # NGNK Media Bar
 
-A full-width Apple Music Touch Bar for [MTMR](https://github.com/Toxblh/MTMR).
+A full-width now-playing Touch Bar for [MTMR](https://github.com/Toxblh/MTMR). It works with Apple Music, YouTube in your browser, and any other app that shows up in macOS's Now Playing.
 
 ![NGNK Media Bar on the Touch Bar](docs/media-bar.gif)
 
 MTMR shows a now-playing button (album art and title) on your main bar. Tap it to open the media bar:
 
-- album art that scrolls top to bottom, pausing with playback
+- album art or video thumbnail, scrolling top to bottom and pausing with playback (falls back to the app's icon)
 - title and artist, scrolling when too long
 - rainbow EQ animation
 - previous / play-pause / next
@@ -39,8 +39,8 @@ Re-run it after pulling changes. To remove everything: `scripts/uninstall.sh`.
 
 ## How it works
 
-- **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework). This needs no Automation permission, which MTMR often can't get.
-- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`; `mediabar://close` closes it. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕.
+- **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework), from whichever app owns it: Apple Music, a browser playing YouTube, and so on. This needs no Automation permission, which MTMR often can't get. Play/pause and skip go to that same app.
+- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`. Other URLs: `mediabar://close`, `mediabar://toggle`, `mediabar://next`, `mediabar://prev`. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕.
 - **MTMR's button** only reads its image when MTMR loads its config. So on each track change the app saves the art to `~/Library/Application Support/NGNK Media Bar/art.png` and sets the button's title in `items.json`, and MTMR reloads. While the media bar is open, those updates wait until it closes, since a reload would cover it.
 
 The button the installer adds:
@@ -61,7 +61,7 @@ The button the installer adds:
 
 - **Private APIs.** MediaRemote and the system-modal Touch Bar calls are undocumented, so a macOS update could break them.
 - **The EQ is simulated.** It animates while music plays and settles when paused, but doesn't react to the audio.
-- **Apple Music only.** Other players are ignored.
+- **Browser support varies.** Firefox and Safari report YouTube's title, channel and thumbnail. Next/previous only work where the page supports them (e.g. YouTube playlists).
 - **MTMR's button art is small and static** (MTMR caps images at about 24pt). The large, animated art is on the media bar.
 - **MTMR's bar redraws once per track change**, because that's the only way MTMR picks up a new image.
 - The installer rewrites `items.json` through a JSON serializer, so key order and formatting change (content doesn't). A backup is saved first.
