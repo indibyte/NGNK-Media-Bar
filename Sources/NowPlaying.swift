@@ -28,7 +28,12 @@ enum Volume {
         NSAppleScript(source: "output volume of (get volume settings)")?.executeAndReturnError(nil).doubleValue ?? 50
     }
 
+    static var muted: Bool {
+        NSAppleScript(source: "output muted of (get volume settings)")?.executeAndReturnError(nil).booleanValue ?? false
+    }
+
+    /// Sets the level and unmutes, so moving the slider is always audible (like the volume keys).
     static func set(_ value: Double) {
-        NSAppleScript(source: "set volume output volume \(Int(value))")?.executeAndReturnError(nil)
+        NSAppleScript(source: "set volume output volume \(Int(value)) without output muted")?.executeAndReturnError(nil)
     }
 }

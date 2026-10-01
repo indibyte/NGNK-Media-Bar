@@ -17,6 +17,8 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private let volume = NSSlider(value: 50, minValue: 0, maxValue: 100, target: nil, action: nil)
     private var state = NowPlaying()
     private var isOpen = false
+    private let volumeIcon = NSImageView()
+    private var volumeTouchedAt = Date.distantPast
     private var eqTimer: Timer?
 
     // MTMR button sync: an MTMR reload would cover this bar, so updates wait until it's closed.
@@ -31,7 +33,10 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         volume.widthAnchor.constraint(equalToConstant: 130).isActive = true
         volume.target = self
         volume.action = #selector(volumeChanged)
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+            self?.refresh()
+            self?.syncVolume()
+        }
         refresh()
 
         // MTMR re-presents its own bar on app switches/launches (and wake/unlock), covering ours; take the
@@ -58,8 +63,8 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
 
     private func show() {
         isOpen = true
-        volume.doubleValue = Volume.get()
         present()
+        syncVolume()
         eqTimer?.invalidate()
         eqTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -115,7 +120,19 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
 
     @objc private func nextTrack() { MediaRemote.send(.nextTrack) }
     @objc private func previousTrack() { MediaRemote.send(.previousTrack) }
-    @objc private func volumeChanged() { Volume.set(volume.doubleValue) }
+    @objc private func volumeChanged() {
+        volumeTouchedAt = Date()
+        Volume.set(volume.doubleValue)
+        volumeIcon.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: nil)
+    }
+
+    // Follow volume-key and menu-bar changes, but not mid-drag.
+    private func syncVolume() {
+        guard isOpen, Date().timeIntervalSince(volumeTouchedAt) > 1.5 else { return }
+        volume.doubleValue = Volume.get()
+        let symbol = Volume.muted ? "speaker.slash.fill" : "speaker.wave.2.fill"
+        volumeIcon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+    }
 
     private func button(_ symbol: String, _ action: Selector) -> NSButton {
         let b = NSButton(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil)!, target: self, action: action)
@@ -124,9 +141,10 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     }
 
     private func volumeView() -> NSView {
-        let icon = NSImageView(image: NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: nil)!)
-        icon.contentTintColor = .white
-        return NSStackView(views: [icon, volume])
+        volumeIcon.image = NSImage(systemSymbolName: "speaker.wave.2.fill", accessibilityDescription: nil)
+        volumeIcon.contentTintColor = .white
+        volumeIcon.widthAnchor.constraint(equalToConstant: 24).isActive = true
+        return NSStackView(views: [volumeIcon, volume])
     }
 
     func touchBar(_: NSTouchBar, makeItemForIdentifier id: NSTouchBarItem.Identifier) -> NSTouchBarItem? {
