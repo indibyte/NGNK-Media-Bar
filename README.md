@@ -61,7 +61,7 @@ The button the installer adds:
 
 - **Private APIs.** MediaRemote and the system-modal Touch Bar calls are undocumented, so a macOS update could break them.
 - **The EQ is simulated.** It animates while music plays and settles when paused, but doesn't react to the audio.
-- **Browser support varies.** Firefox and Safari report YouTube's title, channel and thumbnail. Next/previous only work where the page supports them (e.g. YouTube playlists).
+- **Browser support varies.** Firefox and Safari report YouTube's title and channel. Firefox doesn't always pass the thumbnail along, so for Firefox the app finds the video's tab in Firefox's session file (read locally), takes the video ID from its URL, and downloads the thumbnail from `i.ytimg.com`. A new video's thumbnail can take up to ~15s, until Firefox saves its session. Next/previous only work where the page supports them (e.g. YouTube playlists).
 - **MTMR's button art is small and static** (MTMR caps images at about 24pt). The large, animated art is on the media bar.
 - **MTMR's bar redraws once per track change**, because that's the only way MTMR picks up a new image.
 - The installer rewrites `items.json` through a JSON serializer, so key order and formatting change (content doesn't). A backup is saved first.
@@ -81,6 +81,7 @@ Sources:
 | `Sources/Views.swift` | Album art, marquee and EQ views |
 | `Sources/NowPlaying.swift` | Now-playing state and system volume |
 | `Sources/MTMR.swift` | MTMR button sync and config edits |
+| `Sources/FirefoxYouTube.swift` | YouTube thumbnails for Firefox via its session file |
 | `Sources/PrivateAPI.swift` | MediaRemote and Touch Bar private APIs |
 
 ## License

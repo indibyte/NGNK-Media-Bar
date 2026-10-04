@@ -23,6 +23,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
 
     // MTMR button sync: an MTMR reload would cover this bar, so updates wait until it's closed.
     private var mtmrSummary: String?
+    private var mtmrArt: Data?
     private var mtmrPending = false
     private var mtmrChangedAt = Date()
 
@@ -111,11 +112,14 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             mtmrSummary = np.summary
             mtmrPending = true
             mtmrChangedAt = Date()
+        } else if np.art != mtmrArt {   // art arrived (or changed) after the title was synced
+            mtmrPending = true
         }
         // Art often lags the title; wait up to 3s for it so each track costs one MTMR reload.
         guard mtmrPending, !isOpen,
               np.art != nil || np.summary.isEmpty || Date().timeIntervalSince(mtmrChangedAt) > 3 else { return }
         mtmrPending = false
+        mtmrArt = np.art
         MTMR.update(np)
     }
 
