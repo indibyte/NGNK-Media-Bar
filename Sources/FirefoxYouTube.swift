@@ -7,7 +7,11 @@ import Foundation
 enum FirefoxYouTube {
     static let bundleID = "org.mozilla.firefox"
 
+    /// Posted when a thumbnail finishes downloading, so the bar can pick it up.
+    static let didLoad = Notification.Name("ngnk.mediabar.thumbnailDidLoad")
+
     private static var thumbnails: [String: Data] = [:]   // video ID -> thumbnail
+    private static var ids: [String: String] = [:]        // title -> video ID
     private static var loading: Set<String> = []
     private static var firstSeen: [String: Date] = [:]    // title -> when we started looking
     private static var tabs: [(title: String, url: String)] = []
@@ -16,10 +20,12 @@ enum FirefoxYouTube {
     /// The thumbnail for the video titled `title`. `pending` is true while it may still arrive
     /// (download in flight, or the tab not saved yet); false means there's no matching YouTube tab.
     static func thumbnail(for title: String) -> (data: Data?, pending: Bool) {
+        if let id = ids[title], let data = thumbnails[id] { return (data, false) }
         let seen = firstSeen[title] ?? Date()
         firstSeen[title] = seen
-        reloadTabsIfChanged()
+        reloadTabsIfChanged()   // only while unresolved: the session file is large
         guard let id = videoID(for: title) else { return (nil, Date().timeIntervalSince(seen) < 20) }
+        ids[title] = id
         if let data = thumbnails[id] { return (data, false) }
         download(id)
         return (nil, true)
@@ -39,7 +45,10 @@ enum FirefoxYouTube {
         URLSession.shared.dataTask(with: url) { data, response, _ in
             DispatchQueue.main.async {
                 loading.remove(id)
-                if let data = data, (response as? HTTPURLResponse)?.statusCode == 200 { thumbnails[id] = data }
+                if let data = data, (response as? HTTPURLResponse)?.statusCode == 200 {
+                    thumbnails[id] = data
+                    NotificationCenter.default.post(name: didLoad, object: nil)
+                }
             }
         }.resume()
     }
@@ -51,6 +60,10 @@ enum FirefoxYouTube {
               let date = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate,
               date != sessionDate else { return }
         sessionDate = date
+        autoreleasepool { parseSession(file) }
+    }
+
+    private static func parseSession(_ file: URL) {
         guard let raw = try? Data(contentsOf: file), let json = decompress(raw),
               let session = (try? JSONSerialization.jsonObject(with: json)) as? [String: Any],
               let windows = session["windows"] as? [[String: Any]] else { return }

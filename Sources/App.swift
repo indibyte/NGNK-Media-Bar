@@ -20,6 +20,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private let volumeIcon = NSImageView()
     private var volumeTouchedAt = Date.distantPast
     private var eqTimer: Timer?
+    private var volumeTimer: Timer?
 
     // MTMR button sync: an MTMR reload would cover this bar, so updates wait until it's closed.
     private var mtmrSummary: String?
@@ -34,9 +35,12 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         volume.widthAnchor.constraint(equalToConstant: 130).isActive = true
         volume.target = self
         volume.action = #selector(volumeChanged)
-        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
+        // Poll once a second. (MediaRemote's change notifications would be more efficient, but registering
+        // for them made MediaRemote's brief ~80 MB spike in this process happen on every track change,
+        // instead of occasionally.)
+        Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
+        NotificationCenter.default.addObserver(forName: FirefoxYouTube.didLoad, object: nil, queue: .main) { [weak self] _ in
             self?.refresh()
-            self?.syncVolume()
         }
         refresh()
 
@@ -72,6 +76,8 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         isOpen = true
         present()
         syncVolume()
+        volumeTimer?.invalidate()
+        volumeTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.syncVolume() }
         eqTimer?.invalidate()
         eqTimer = Timer.scheduledTimer(withTimeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
             guard let self = self else { return }
@@ -89,6 +95,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     @objc private func close() {
         isOpen = false
         eqTimer?.invalidate()
+        volumeTimer?.invalidate()
         NSTouchBar.dismissSystemModal(bar)
         refresh()   // flush any MTMR update held while open
     }
@@ -98,7 +105,12 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             guard let self = self else { return }
             self.syncMTMR(np)
             guard np != self.state else { return }
-            if np.art != self.state.art || np.title != self.state.title { self.art.set(np.art) }
+            if np.art != self.state.art || np.title != self.state.title {
+                self.art.set(np.art)
+                // MediaRemote sometimes uses tens of MB in this process while a new track's artwork loads,
+                // then frees it; hand those pages back instead of keeping them.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1) { malloc_zone_pressure_relief(nil, 0) }
+            }
             self.state = np
             self.marquee.set(title: np.title, artist: np.artist)
             self.art.setPlaying(np.playing)

@@ -1,4 +1,6 @@
 import AppKit
+import AudioToolbox
+import CoreAudio
 
 struct NowPlaying: Equatable {
     var title = "", artist = "", playing = false, art: Data? = nil
@@ -41,18 +43,39 @@ struct NowPlaying: Equatable {
     }
 }
 
-// System output volume via an in-process scripting addition (no Apple Events permission needed).
+// System output volume (0–100) of the default output device, via CoreAudio.
 enum Volume {
-    static func get() -> Double {
-        NSAppleScript(source: "output volume of (get volume settings)")?.executeAndReturnError(nil).doubleValue ?? 50
-    }
+    static func get() -> Double { read(kAudioHardwareServiceDeviceProperty_VirtualMainVolume, as: Float32.self).map { Double($0) * 100 } ?? 50 }
 
-    static var muted: Bool {
-        NSAppleScript(source: "output muted of (get volume settings)")?.executeAndReturnError(nil).booleanValue ?? false
-    }
+    static var muted: Bool { read(kAudioDevicePropertyMute, as: UInt32.self) == 1 }
 
     /// Sets the level and unmutes, so moving the slider is always audible (like the volume keys).
     static func set(_ value: Double) {
-        NSAppleScript(source: "set volume output volume \(Int(value)) without output muted")?.executeAndReturnError(nil)
+        write(kAudioHardwareServiceDeviceProperty_VirtualMainVolume, Float32(value / 100))
+        write(kAudioDevicePropertyMute, UInt32(0))
+    }
+
+    private static func address(_ selector: AudioObjectPropertySelector, scope: AudioObjectPropertyScope = kAudioDevicePropertyScopeOutput) -> AudioObjectPropertyAddress {
+        AudioObjectPropertyAddress(mSelector: selector, mScope: scope, mElement: kAudioObjectPropertyElementMain)
+    }
+
+    private static var device: AudioDeviceID? {
+        var id = AudioDeviceID(0), size = UInt32(MemoryLayout<AudioDeviceID>.size)
+        var a = address(kAudioHardwarePropertyDefaultOutputDevice, scope: kAudioObjectPropertyScopeGlobal)
+        return AudioObjectGetPropertyData(AudioObjectID(kAudioObjectSystemObject), &a, 0, nil, &size, &id) == noErr ? id : nil
+    }
+
+    private static func read<T>(_ selector: AudioObjectPropertySelector, as _: T.Type) -> T? {
+        guard let dev = device else { return nil }
+        var a = address(selector), size = UInt32(MemoryLayout<T>.size)
+        let value = UnsafeMutablePointer<T>.allocate(capacity: 1)
+        defer { value.deallocate() }
+        return AudioObjectGetPropertyData(dev, &a, 0, nil, &size, value) == noErr ? value.pointee : nil
+    }
+
+    private static func write<T>(_ selector: AudioObjectPropertySelector, _ value: T) {
+        guard let dev = device else { return }
+        var a = address(selector), v = value
+        AudioObjectSetPropertyData(dev, &a, 0, nil, UInt32(MemoryLayout<T>.size), &v)
     }
 }

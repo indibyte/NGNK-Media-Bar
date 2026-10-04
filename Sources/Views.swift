@@ -46,14 +46,28 @@ final class ArtView: FixedView {
         let fade = CATransition()
         fade.duration = 0.6
         layer!.add(fade, forKey: "fade")
-        let image = data.flatMap { NSImage(data: $0) }
+        let image = data.flatMap { downsample($0, width: bounds.width * 2) }
         noAnimation { for c in copies { c.contents = image } }
-        let newAspect = image.map { $0.size.width > 0 ? $0.size.height / $0.size.width : 1 } ?? 1
+        let newAspect = image.map { CGFloat($0.height) / CGFloat(max($0.width, 1)) } ?? 1
         if newAspect != aspect {
             aspect = newAspect
             laidOut = .zero
             needsLayout = true
         }
+    }
+
+    /// Decodes the art at the tile's pixel width (not full size) to keep memory low.
+    private func downsample(_ data: Data, width: CGFloat) -> CGImage? {
+        guard let src = CGImageSourceCreateWithData(data as CFData, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+              let w = props[kCGImagePropertyPixelWidth] as? CGFloat, let h = props[kCGImagePropertyPixelHeight] as? CGFloat,
+              w > 0 else { return nil }
+        let maxSide = max(width, width * h / w)
+        return CGImageSourceCreateThumbnailAtIndex(src, 0, [
+            kCGImageSourceCreateThumbnailFromImageAlways: true,
+            kCGImageSourceThumbnailMaxPixelSize: maxSide,
+            kCGImageSourceCreateThumbnailWithTransform: true,
+        ] as CFDictionary)
     }
 
     private var artHeight: CGFloat { max(bounds.height, bounds.width * aspect) }
