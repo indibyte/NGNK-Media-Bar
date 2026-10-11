@@ -35,9 +35,8 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
         volume.widthAnchor.constraint(equalToConstant: 130).isActive = true
         volume.target = self
         volume.action = #selector(volumeChanged)
-        // Poll once a second. (MediaRemote's change notifications would be more efficient, but registering
-        // for them made MediaRemote's brief ~80 MB spike in this process happen on every track change,
-        // instead of occasionally.)
+        MediaRemote.start()
+        // Pick up the helper's latest state (and Firefox thumbnails) once a second.
         Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in self?.refresh() }
         NotificationCenter.default.addObserver(forName: FirefoxYouTube.didLoad, object: nil, queue: .main) { [weak self] _ in
             self?.refresh()
@@ -107,8 +106,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             guard np != self.state else { return }
             if np.art != self.state.art || np.title != self.state.title {
                 self.art.set(np.art)
-                // MediaRemote sometimes uses tens of MB in this process while a new track's artwork loads,
-                // then frees it; hand those pages back instead of keeping them.
+                // Decoding a new track's artwork briefly uses a few MB; hand those pages back.
                 DispatchQueue.main.asyncAfter(deadline: .now() + 1) { malloc_zone_pressure_relief(nil, 0) }
             }
             self.state = np

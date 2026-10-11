@@ -11,23 +11,17 @@ struct NowPlaying: Equatable {
     /// Fetches the system Now Playing state from whichever app owns it (Apple Music, a browser playing
     /// YouTube, etc.). Without artwork: YouTube's thumbnail for Firefox tabs, otherwise the app's icon.
     static func fetch(_ done: @escaping (NowPlaying) -> Void) {
-        MediaRemote.getAppPID(.main) { pid in
-            MediaRemote.getIsPlaying(.main) { playing in
-                MediaRemote.getInfo(.main) { cf in
-                    let info = (cf as? [String: Any]) ?? [:], k = "kMRMediaRemoteNowPlayingInfo"
-                    guard let title = info[k + "Title"] as? String, !title.isEmpty else { return done(NowPlaying()) }
-                    var art = info[k + "ArtworkData"] as? Data
-                    if art == nil, NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == FirefoxYouTube.bundleID {
-                        let thumb = FirefoxYouTube.thumbnail(for: title)
-                        art = thumb.data
-                        if art == nil, !thumb.pending { art = appIcon(pid) }   // blank tile while still looking
-                    } else if art == nil {
-                        art = appIcon(pid)
-                    }
-                    done(NowPlaying(title: title, artist: info[k + "Artist"] as? String ?? "", playing: playing, art: art))
-                }
-            }
+        let s = MediaRemote.latest, pid = s.pid
+        guard !s.title.isEmpty else { return done(NowPlaying()) }
+        var art = s.art
+        if art == nil, NSRunningApplication(processIdentifier: pid)?.bundleIdentifier == FirefoxYouTube.bundleID {
+            let thumb = FirefoxYouTube.thumbnail(for: s.title)
+            art = thumb.data
+            if art == nil, !thumb.pending { art = appIcon(pid) }   // blank tile while still looking
+        } else if art == nil {
+            art = appIcon(pid)
         }
+        done(NowPlaying(title: s.title, artist: s.artist, playing: s.playing, art: art))
     }
 
     private static var iconCache: [String: Data] = [:]

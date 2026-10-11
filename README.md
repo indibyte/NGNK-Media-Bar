@@ -17,7 +17,7 @@ The media bar stays open across track changes.
 
 ## Requirements
 
-- A MacBook Pro with a Touch Bar, macOS 11 or later (tested on macOS 13)
+- A MacBook Pro with a Touch Bar, macOS 11 or later (tested on macOS 13 and 15)
 - [MTMR](https://github.com/Toxblh/MTMR), run at least once
 - Xcode Command Line Tools (`xcode-select --install`)
 
@@ -39,7 +39,7 @@ Re-run it after pulling changes. To remove everything: `scripts/uninstall.sh`.
 
 ## How it works
 
-- **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework), from whichever app owns it: Apple Music, a browser playing YouTube, and so on. This needs no Automation permission, which MTMR often can't get. Play/pause and skip go to that same app.
+- **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework), from whichever app owns it: Apple Music, a browser playing YouTube, and so on. This needs no Automation permission, which MTMR often can't get. Play/pause and skip go to that same app. Since macOS 15.4, MediaRemote only answers Apple-signed processes, so those calls run in a small helper library (`Helper/NowPlayingHelper.m`) that the app loads into `/usr/bin/perl` and talks to over pipes.
 - **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`. Other URLs: `mediabar://close`, `mediabar://toggle`, `mediabar://next`, `mediabar://prev`. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕.
 - **MTMR's button** only reads its image when MTMR loads its config. So on each track change the app saves the art to `~/Library/Application Support/NGNK Media Bar/art.png` and sets the button's title in `items.json`, and MTMR reloads. While the media bar is open, those updates wait until it closes, since a reload would cover it.
 
