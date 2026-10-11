@@ -33,8 +33,10 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     func applicationDidFinishLaunching(_: Notification) {
         setSystemModalShowsCloseBox(false)
         bar.delegate = self
-        bar.defaultItemIdentifiers = [.close, .art, .marquee, .eq, .prev, .play, .next, .flexibleSpace, .volume]
-        volume.widthAnchor.constraint(equalToConstant: 130).isActive = true
+        bar.defaultItemIdentifiers = [.close, .art, .marquee, .eq, .prev, .play, .next, .volume]
+        // The slider takes whatever width is left at the end of the bar.
+        volume.widthAnchor.constraint(greaterThanOrEqualToConstant: 130).isActive = true
+        volume.setContentHuggingPriority(.defaultLow, for: .horizontal)
         volume.target = self
         volume.action = #selector(volumeChanged)
         MediaRemote.start()
