@@ -13,7 +13,7 @@ MTMR shows a now-playing button (album art and title) on your main bar. Tap it t
 - volume slider
 - ✕ to return to MTMR
 
-The media bar stays open across track changes.
+The media bar opens by itself when playback starts and closes after 5 seconds with nothing playing. It stays open across track changes. If you close it with ✕ while something is playing, it stays closed until playback stops and starts again.
 
 ## Requirements
 
@@ -40,7 +40,7 @@ Re-run it after pulling changes. To remove everything: `scripts/uninstall.sh`.
 ## How it works
 
 - **Now playing** comes from macOS's system-wide Now Playing info (the private MediaRemote framework), from whichever app owns it: Apple Music, a browser playing YouTube, and so on. This needs no Automation permission, which MTMR often can't get. Play/pause and skip go to that same app. Since macOS 15.4, MediaRemote only answers Apple-signed processes, so those calls run in a small helper library (`Helper/NowPlayingHelper.m`) that the app loads into `/usr/bin/perl` and talks to over pipes.
-- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`. Other URLs: `mediabar://close`, `mediabar://toggle`, `mediabar://next`, `mediabar://prev`. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕.
+- **The media bar** is a system-modal Touch Bar shown over MTMR's bar. MTMR's button opens it with `mediabar://show`. Other URLs: `mediabar://close`, `mediabar://toggle`, `mediabar://next`, `mediabar://prev`. MTMR re-presents its own bar when you switch or launch apps (and on wake/unlock), so while the media bar is open it takes the Touch Bar back after those events; it stays until you tap ✕ or playback has been stopped for 5 seconds.
 - **MTMR's button** only reads its image when MTMR loads its config. So on each track change the app saves the art to `~/Library/Application Support/NGNK Media Bar/art.png` and sets the button's title in `items.json`, and MTMR reloads. While the media bar is open, those updates wait until it closes, since a reload would cover it.
 
 The button the installer adds:

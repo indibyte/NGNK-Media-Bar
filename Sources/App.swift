@@ -9,14 +9,16 @@ extension NSTouchBarItem.Identifier {
 
 final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private let bar = NSTouchBar()
-    private let art = ArtView(width: 120)
-    private let marquee = MarqueeView(width: 320)
+    private let art = ArtView(width: 240)
+    private let marquee = MarqueeView(width: 200)
     private let eq = EQView(width: 150, count: 18)
     private let levels = SimulatedLevels(count: 18)
     private lazy var playButton = button("play.fill", #selector(togglePlayPause))
     private let volume = NSSlider(value: 50, minValue: 0, maxValue: 100, target: nil, action: nil)
     private var state = NowPlaying()
     private var isOpen = false
+    private var wasPlaying = false
+    private var idleSince: Date?   // while open: when we first saw nothing playing
     private let volumeIcon = NSImageView()
     private var volumeTouchedAt = Date.distantPast
     private var eqTimer: Timer?
@@ -73,6 +75,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
 
     private func show() {
         isOpen = true
+        idleSince = nil
         present()
         syncVolume()
         volumeTimer?.invalidate()
@@ -102,6 +105,7 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
     private func refresh() {
         NowPlaying.fetch { [weak self] np in
             guard let self = self else { return }
+            self.autoOpenClose(playing: np.playing)
             self.syncMTMR(np)
             guard np != self.state else { return }
             if np.art != self.state.art || np.title != self.state.title {
@@ -114,6 +118,20 @@ final class App: NSObject, NSApplicationDelegate, NSTouchBarDelegate {
             self.art.setPlaying(np.playing)
             self.playButton.image = NSImage(systemSymbolName: np.playing ? "pause.fill" : "play.fill",
                                             accessibilityDescription: nil)
+        }
+    }
+
+    /// Opens when playback starts and closes after 5s with nothing playing. Opening only on a start means
+    /// ✕ while playing keeps the bar closed until playback stops and starts again.
+    private func autoOpenClose(playing: Bool) {
+        defer { wasPlaying = playing }
+        if playing {
+            idleSince = nil
+            if !wasPlaying, !isOpen { show() }
+        } else if isOpen {
+            let since = idleSince ?? Date()
+            idleSince = since
+            if Date().timeIntervalSince(since) >= 5 { close() }
         }
     }
 
